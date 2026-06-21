@@ -19,3 +19,5 @@ allure-results/
 .pytest_cache/
 traces/
 .idea/
+reports/
+*.log

@@ -18,7 +18,7 @@ Key features:
 - `pytest.ini` - pytest configuration, browser settings, reporting options, and test discovery rules
 - `requirements.txt` - Python dependencies required to run the automation suite
 - `allure-results/` - generated Allure result files after test execution
-- `test-results/` - generated HTML and JUnit XML reports
+- `reports/` - generated HTML and JUnit XML reports
 - `screenshots/`, `videos/`, `traces/` - saved artifacts for debugging and reporting
 
 ## Requirements
@@ -61,7 +61,7 @@ The current configuration in `pytest.ini` uses:
 - `--headed` mode
 - `--slowmo=200`
 - screenshots, videos, and traces retained on failure
-- HTML report output to `test-results/report.html`
+- HTML report output to `reports/report.html`
 - Allure results output to `allure-results`
 - JUnit XML output to `report.xml`
 
@@ -85,7 +85,7 @@ pytest -m regression
 After execution, open the generated report file:
 
 ```powershell
-start test-results\report.html
+start reports\report.html
 ```
 
 ### Allure report
