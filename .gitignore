@@ -13,7 +13,6 @@ develop-eggs/
 dist/
 downloads/
 videos/
-test-results/
 screenshots/
 allure-results/
 .vscode/

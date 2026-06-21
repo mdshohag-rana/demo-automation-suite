@@ -67,5 +67,4 @@ def test_log_in(page: Page) -> None:
     page.fill("input[name='password']", "testpassword")
     page.click("input[type='submit']")
 
-    expect(page.locator("div.alert")).to_have_text("Invalid username or password")
-    
+    expect(page.locator("xpath=//a[@href='/logout']")).to_have_text("Logout")
