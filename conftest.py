@@ -3,112 +3,188 @@ import allure
 from pathlib import Path
 from playwright.sync_api import Browser, BrowserContext, Page
 
+
+# =====================================
+# DIRECTORIES
+# =====================================
+
 SCREENSHOT_DIR = Path("screenshots")
 VIDEO_DIR = Path("videos")
 TRACE_DIR = Path("traces")
-REPORT_DIR = Path("test-results")
 
-SCREENSHOT_DIR.mkdir(exist_ok=True)
-VIDEO_DIR.mkdir(exist_ok=True)
-TRACE_DIR.mkdir(exist_ok=True)
-REPORT_DIR.mkdir(exist_ok=True, parents=True)
+REPORT_DIR = Path("reports")
+ALLURE_DIR = Path("allure-results")
+PLAYWRIGHT_DIR = Path("playwright-results")
 
 
-# =========================
-# CONTEXT (VIDEO + TRACE)
-# =========================
+def create_directories():
+    for directory in [
+        SCREENSHOT_DIR,
+        VIDEO_DIR,
+        TRACE_DIR,
+        REPORT_DIR,
+        ALLURE_DIR,
+        PLAYWRIGHT_DIR,
+    ]:
+        directory.mkdir(parents=True, exist_ok=True)
+
+
+create_directories()
+
+
+# =====================================
+# PYTEST CONFIGURATION
+# =====================================
+
+def pytest_configure(config):
+    create_directories()
+
+    html_report = getattr(config.option, "htmlpath", None)
+
+    if html_report:
+        html_path = Path(html_report)
+
+        if not html_path.is_absolute():
+            html_path = Path(config.rootpath) / html_path
+
+        html_path.parent.mkdir(parents=True, exist_ok=True)
+
+
+# =====================================
+# CONTEXT FIXTURE
+# VIDEO + TRACE
+# =====================================
+
 @pytest.fixture(scope="function")
 def context(browser: Browser, request) -> BrowserContext:
     context = browser.new_context(
         record_video_dir=str(VIDEO_DIR),
-        record_video_size={"width": 1280, "height": 720}
+        record_video_size={
+            "width": 1280,
+            "height": 720,
+        },
     )
 
     context.tracing.start(
         screenshots=True,
         snapshots=True,
-        sources=True
+        sources=True,
     )
 
     yield context
 
-    # ⭐ STOP TRACE AFTER TEST
     trace_file = TRACE_DIR / f"{request.node.name}_trace.zip"
-    context.tracing.stop(path=str(trace_file))
 
-    # ⭐ CLOSE CONTEXT → THIS CREATES VIDEO FILE
-    context.close()
+    try:
+        context.tracing.stop(path=str(trace_file))
+    except Exception as e:
+        print(f"Trace stop failed: {e}")
 
-    # ⭐ ATTACH TRACE AFTER CONTEXT CLOSE
+    try:
+        context.close()
+    except Exception as e:
+        print(f"Context close failed: {e}")
+
     if trace_file.exists():
         allure.attach.file(
             str(trace_file),
             name="Playwright Trace",
-            attachment_type=allure.attachment_type.ZIP
+            attachment_type=allure.attachment_type.ZIP,
         )
 
 
-# =========================
-# PAGE FIXTURE (SCREENSHOT + VIDEO)
-# =========================
+# =====================================
+# PAGE FIXTURE
+# SCREENSHOT + HTML + URL + VIDEO
+# =====================================
+
 @pytest.fixture(scope="function")
 def page(context: BrowserContext, request) -> Page:
     page = context.new_page()
+
     yield page
 
     test_name = request.node.name
 
-    # =========================
-    # TAKE FINAL SCREENSHOT (ALWAYS WORKS)
-    # =========================
     screenshot_file = SCREENSHOT_DIR / f"{test_name}.png"
     html_file = SCREENSHOT_DIR / f"{test_name}.html"
 
+    video_path = None
+
     try:
-        page.screenshot(path=str(screenshot_file), full_page=True)
+        if page.video:
+            video_path = page.video.path()
+    except Exception:
+        pass
+
+    # ==========================
+    # Screenshot
+    # ==========================
+    try:
+        page.screenshot(
+            path=str(screenshot_file),
+            full_page=True,
+        )
 
         allure.attach.file(
             str(screenshot_file),
             name="Final Screenshot",
-            attachment_type=allure.attachment_type.PNG
+            attachment_type=allure.attachment_type.PNG,
         )
 
-        # Attach HTML
+    except Exception as e:
+        print(f"Screenshot failed: {e}")
+
+    # ==========================
+    # HTML Source
+    # ==========================
+    try:
         html = page.content()
-        html_file.write_text(html, encoding="utf-8")
+
+        html_file.write_text(
+            html,
+            encoding="utf-8",
+        )
 
         allure.attach.file(
             str(html_file),
             name="Page Source",
-            attachment_type=allure.attachment_type.HTML
-        )
-
-        # Attach URL
-        allure.attach(
-            page.url,
-            name="Final URL",
-            attachment_type=allure.attachment_type.TEXT
+            attachment_type=allure.attachment_type.HTML,
         )
 
     except Exception as e:
-        print("Screenshot failed:", e)
+        print(f"HTML capture failed: {e}")
 
-    # =========================
-    # CLOSE PAGE
-    # =========================
+    # ==========================
+    # URL
+    # ==========================
     try:
-        video_path = page.video.path() if page.video else None
-    except Exception:
-        video_path = None
-
-    page.close()
-
-    # =========================
-    # ATTACH VIDEO (NOW EXISTS!)
-    # =========================
-    if video_path and Path(video_path).exists():
-        allure.attach.file(
-            video_path,
-            name="Test Video",
-            attachment_type=allure.attachment_type.MP4
+        allure.attach(
+            page.url,
+            name="Final URL",
+            attachment_type=allure.attachment_type.TEXT,
         )
+
+    except Exception as e:
+        print(f"URL attachment failed: {e}")
+
+    # ==========================
+    # Close page
+    # ==========================
+    try:
+        page.close()
+    except Exception as e:
+        print(f"Page close failed: {e}")
+
+    # ==========================
+    # Attach video
+    # ==========================
+    try:
+        if video_path and Path(video_path).exists():
+            allure.attach.file(
+                video_path,
+                name="Test Video",
+                attachment_type=allure.attachment_type.MP4,
+            )
+    except Exception as e:
+        print(f"Video attachment failed: {e}")
