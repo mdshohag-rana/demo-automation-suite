@@ -68,3 +68,9 @@ def test_log_in(page: Page) -> None:
     page.click("input[type='submit']")
 
     expect(page.locator("xpath=//a[@href='/logout']")).to_have_text("Logout")
+
+def test_heading(page: Page) -> None:
+    page.goto("https://quotes.toscrape.com/")
+
+    expect(page.locator("//h1")).to_be_visible()
+    expect(page.locator("//h1")).to_have_text("Quotes to Scrape")
