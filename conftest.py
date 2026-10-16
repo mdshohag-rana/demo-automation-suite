@@ -33,7 +33,7 @@ create_directories()
 
 
 # =====================================
-# PYTEST CONFIGURATION
+# PYTEST CONFIGURATION file
 # =====================================
 
 def pytest_configure(config):
